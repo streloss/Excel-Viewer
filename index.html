@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Excel Viewer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f6fa;--white:#fff;--border:#d1d5de;--border-lt:#e8eaf0;
+  --text:#1c1f26;--muted:#6b7280;--accent:#1a73e8;--accent-lt:#e8f0fe;
+  --acc-h:#1557b0;--hbg:#f8f9fb;--hover:#eef2ff;--alt:#fafbfc;
+  --green:#34a853;--orange:#fbbc04;--red:#ea4335;
+  --shadow:0 1px 4px rgba(0,0,0,.09),0 2px 12px rgba(0,0,0,.06);--r:6px;
+}
+body{font-family:'Nunito Sans','Segoe UI',sans-serif;font-size:13px;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* RIBBON */
+.ribbon{background:var(--white);border-bottom:1px solid var(--border);flex-shrink:0;box-shadow:var(--shadow);z-index:100}
+.ribbon-top{display:flex;align-items:center;gap:10px;padding:8px 16px}
+.logo{display:flex;align-items:center;gap:7px;font-weight:700;font-size:14px;color:var(--accent);white-space:nowrap;user-select:none}
+.logo-icon{width:28px;height:28px;background:var(--accent);border-radius:5px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:900}
+.file-pill{background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:4px 14px;font-size:12px;color:var(--muted);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-pill.on{color:var(--text);background:var(--accent-lt);border-color:#b3ccf5}
+.sep{flex:1}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 13px;border-radius:var(--r);border:1px solid var(--border);background:var(--white);color:var(--text);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:all .14s;white-space:nowrap}
+.btn:hover{background:var(--bg);border-color:#aab}
+.btn.acc{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.acc:hover{background:var(--acc-h);border-color:var(--acc-h)}
+.btn.grn{background:var(--green);border-color:var(--green);color:#fff}
+.btn.grn:hover{background:#2d9249}
+.btn svg{width:14px;height:14px;flex-shrink:0}
+input[type=file]{display:none}
+
+/* SHARE BAR */
+.share-bar{display:none;align-items:center;gap:8px;padding:6px 16px;background:#f0f7ff;border-top:1px solid #c5d9f5;flex-wrap:wrap}
+.share-bar.on{display:flex}
+.share-lbl{color:var(--accent);font-weight:700;font-size:12px;white-space:nowrap}
+.share-inp{flex:1;min-width:200px;max-width:500px;padding:5px 10px;border:1px solid #b3ccf5;border-radius:var(--r);font-family:inherit;font-size:11px;background:#fff;color:var(--text);outline:none;cursor:text}
+.share-note{font-size:11px;color:var(--muted)}
+
+/* TOOLBAR */
+.toolbar{display:flex;align-items:center;gap:9px;padding:7px 16px;background:var(--white);border-top:1px solid var(--border-lt)}
+.toolbar.hidden{display:none}
+.sw{position:relative;flex:1;max-width:280px}
+.sw svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);width:13px;height:13px;color:var(--muted);pointer-events:none}
+.si{width:100%;padding:5px 10px 5px 29px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg);font-family:inherit;font-size:12px;color:var(--text);outline:none;transition:border-color .14s,box-shadow .14s}
+.si:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(26,115,232,.12);background:#fff}
+.si::placeholder{color:var(--muted)}
+.badge{font-size:11px;padding:3px 10px;border-radius:20px;white-space:nowrap}
+.badge.or{background:#fff3e0;border:1px solid #ffcc80;color:#e65100;display:none}
+.badge.bl{background:var(--accent-lt);border:1px solid #b3ccf5;color:var(--accent);display:none}
+.stats{font-size:11px;color:var(--muted);white-space:nowrap}
+.stats b{color:var(--text)}
+.dvdr{width:1px;height:18px;background:var(--border-lt);flex-shrink:0}
+
+/* DROP ZONE */
+#dropzone{flex:1;display:flex;align-items:center;justify-content:center;padding:40px;background:var(--bg)}
+.drop-card{background:#fff;border:2px dashed var(--border);border-radius:16px;padding:60px 72px;display:flex;flex-direction:column;align-items:center;gap:16px;max-width:460px;width:100%;text-align:center;cursor:pointer;transition:all .2s}
+.drop-card:hover,#dropzone.over .drop-card{border-color:var(--accent);background:var(--accent-lt)}
+.de{font-size:52px;line-height:1;animation:bob 2.6s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+.drop-card h2{font-size:18px;font-weight:700}
+.drop-card p{font-size:13px;color:var(--muted);line-height:1.65}
+.fmts{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;margin-top:4px}
+.fmt{font-size:11px;font-weight:700;padding:3px 10px;border-radius:4px;border:1px solid #a5d6a7;color:var(--green);background:#f1f8f1}
+
+/* TABS */
+.tabs-bar{display:flex;align-items:flex-end;background:var(--hbg);border-bottom:1px solid var(--border);padding:0 16px;overflow-x:auto;scrollbar-width:none;flex-shrink:0}
+.tabs-bar::-webkit-scrollbar{display:none}
+.tab{font-size:12px;font-weight:600;padding:9px 18px 8px;cursor:pointer;border:1px solid transparent;border-bottom:none;border-radius:5px 5px 0 0;color:var(--muted);white-space:nowrap;transition:all .12s;margin-right:2px;position:relative;bottom:-1px}
+.tab:hover{color:var(--text);background:rgba(0,0,0,.04)}
+.tab.active{background:#fff;color:var(--accent);border-color:var(--border);border-bottom-color:#fff}
+
+/* TABLE */
+#viewer{flex:1;display:none;flex-direction:column;overflow:hidden;min-height:0}
+#viewer.on{display:flex}
+.tw{flex:1;overflow:auto;background:#fff;min-height:0}
+.tw::-webkit-scrollbar{width:10px;height:10px}
+.tw::-webkit-scrollbar-track{background:var(--bg)}
+.tw::-webkit-scrollbar-thumb{background:#c8ccd6;border-radius:5px;border:2px solid var(--bg)}
+.tw::-webkit-scrollbar-thumb:hover{background:#aab}
+table{border-collapse:collapse;width:max-content;min-width:100%}
+thead{position:sticky;top:0;z-index:20}
+thead th{background:var(--hbg);border-right:1px solid var(--border);border-bottom:2px solid var(--border);padding:0;white-space:nowrap;user-select:none;position:relative}
+.thc{display:flex;align-items:center;gap:4px;padding:7px 24px 7px 10px;cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);min-width:60px}
+.thc:hover{background:rgba(26,115,232,.07);color:var(--text)}
+.thc.sorted{color:var(--accent);background:var(--accent-lt)}
+.sa{font-size:10px;opacity:.7;margin-left:auto}
+.fb{position:absolute;right:3px;top:50%;transform:translateY(-50%);display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:none;background:none;border-radius:3px;cursor:pointer;font-size:10px;color:var(--muted);transition:all .12s;padding:0}
+.fb:hover,.fb.on{color:var(--accent);background:var(--accent-lt)}
+.rn{background:var(--hbg)!important;border-right:2px solid var(--border)!important;color:var(--muted);font-size:11px;text-align:center;padding:5px 8px!important;min-width:44px;position:sticky;left:0;z-index:5;font-weight:400}
+thead .rn{z-index:25;border-bottom:2px solid var(--border)!important}
+tbody tr{transition:background .08s}
+tbody tr:nth-child(even) td:not(.rn){background:var(--alt)}
+tbody tr:hover td:not(.rn){background:var(--hover)!important}
+tbody td{border-right:1px solid var(--border-lt);border-bottom:1px solid var(--border-lt);padding:5px 10px;font-size:12px;color:var(--text);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default}
+tbody td.nc{text-align:right;color:#1a56db}
+mark{background:#fff176;color:inherit;border-radius:2px;padding:0 1px}
+.rh{position:absolute;right:0;top:0;bottom:0;width:5px;cursor:col-resize;z-index:2}
+.rh:hover,.rh.drag{background:var(--accent)}
+
+/* FOOTER */
+.footer{display:flex;align-items:center;gap:8px;padding:7px 16px;background:#fff;border-top:1px solid var(--border);flex-shrink:0}
+.footer.hidden{display:none}
+.pi{font-size:12px;color:var(--muted);flex:1}
+.pi b{color:var(--text)}
+.rs{font-family:inherit;font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg);color:var(--text);outline:none;cursor:pointer}
+.pb{min-width:28px;height:28px;padding:0 8px;border-radius:var(--r);border:1px solid var(--border);background:#fff;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:all .12s;color:var(--muted)}
+.pb:hover:not(:disabled){background:var(--accent-lt);border-color:#b3ccf5;color:var(--accent)}
+.pb.cur{background:var(--accent);border-color:var(--accent);color:#fff}
+.pb:disabled{opacity:.35;cursor:not-allowed}
+
+/* FILTER POPUP */
+.fp{position:fixed;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.15);width:220px;z-index:600;display:none;padding:10px}
+.fp input[type=text]{width:100%;padding:5px 9px;border:1px solid var(--border);border-radius:var(--r);font-family:inherit;font-size:12px;background:var(--bg);color:var(--text);outline:none;margin-bottom:8px}
+.fp input[type=text]:focus{border-color:var(--accent)}
+.fl{max-height:200px;overflow-y:auto;scrollbar-width:thin}
+.fl::-webkit-scrollbar{width:5px}
+.fl::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
+.fi{display:flex;align-items:center;gap:7px;padding:4px 5px;border-radius:4px;cursor:pointer;font-size:12px}
+.fi:hover{background:var(--hover)}
+.fi input{accent-color:var(--accent);cursor:pointer;width:14px;height:14px;flex-shrink:0}
+.fi span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ff{display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border-lt)}
+.ff button{flex:1;padding:5px;border-radius:var(--r);border:1px solid var(--border);background:#fff;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;color:var(--muted);transition:all .12s}
+.ff button:hover{border-color:#aab;color:var(--text)}
+.ff .fa{background:var(--accent);border-color:var(--accent);color:#fff}
+.ff .fa:hover{background:var(--acc-h)}
+
+/* TOOLTIP */
+.ctip{position:fixed;background:#1c1f26;color:#fff;padding:6px 12px;border-radius:6px;font-size:12px;max-width:360px;word-break:break-all;pointer-events:none;z-index:999;display:none;box-shadow:0 4px 12px rgba(0,0,0,.2)}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:#1c1f26;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;opacity:0;transition:all .3s;z-index:9999;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* LOADING */
+.lo{position:fixed;inset:0;background:rgba(255,255,255,.75);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:9999}
+.lo.hidden{display:none}
+.sp{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<div class="ribbon">
+  <div class="ribbon-top">
+    <div class="logo"><div class="logo-icon">X</div>Excel Viewer</div>
+    <div class="file-pill" id="filePill">Файл не загружен</div>
+    <div class="sep"></div>
+    <button class="btn hidden" id="btnCsv" onclick="exportCSV()">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 2h7l3 3v9H3V2z"/><path d="M10 2v3h3"/></svg>CSV
+    </button>
+    <button class="btn hidden" id="btnJson" onclick="exportJSON()">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 2h7l3 3v9H3V2z"/><path d="M10 2v3h3"/></svg>JSON
+    </button>
+    <button class="btn grn hidden" id="btnShare" onclick="genLink()">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="3" r="1.5"/><circle cx="12" cy="13" r="1.5"/><circle cx="4" cy="8" r="1.5"/><path d="M5.5 7.1l5-3.2M5.5 8.9l5 3.2"/></svg>Поделиться
+    </button>
+    <button class="btn acc" onclick="document.getElementById('fi').click()">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12v2h12v-2M8 2v9M5 8l3 3 3-3"/></svg>Открыть файл
+    </button>
+    <input type="file" id="fi" accept=".xlsx,.xls,.csv,.ods" onchange="handleFile(this.files[0])">
+  </div>
+  <!-- Share bar -->
+  <div class="share-bar" id="shareBar">
+    <span class="share-lbl">🔗 Ссылка для просмотра:</span>
+    <input class="share-inp" id="shareInp" readonly onclick="this.select()">
+    <button class="btn" style="font-size:11px;padding:4px 12px" onclick="copyLink()">📋 Копировать</button>
+    <span class="share-note" id="shareNote"></span>
+    <button class="btn" style="font-size:11px;padding:4px 10px;margin-left:auto" onclick="document.getElementById('shareBar').classList.remove('on')">✕</button>
+  </div>
+  <!-- Toolbar -->
+  <div class="toolbar hidden" id="toolbar">
+    <div class="sw">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6.5" cy="6.5" r="4"/><path d="M10 10l3 3"/></svg>
+      <input class="si" id="searchIn" placeholder="Поиск по всем ячейкам…" oninput="onSearch()">
+    </div>
+    <span class="badge or" id="fBadge">🔽 Фильтр активен</span>
+    <span class="badge bl" id="sBadge"></span>
+    <div class="sep"></div>
+    <span class="stats" id="statsBadge"></span>
+    <div class="dvdr"></div>
+    <button class="btn" onclick="resetAll()">✕ Сбросить</button>
+  </div>
+</div>
+
+<div id="dropzone">
+  <div class="drop-card" onclick="document.getElementById('fi').click()">
+    <div class="de">📊</div>
+    <h2>Перетащи файл сюда</h2>
+    <p>или нажми, чтобы выбрать файл<br>Цвета ячеек, шрифт и форматирование сохраняются</p>
+    <div class="fmts">
+      <span class="fmt">XLSX</span><span class="fmt">XLS</span><span class="fmt">CSV</span><span class="fmt">ODS</span>
+    </div>
+  </div>
+</div>
+
+<div id="viewer">
+  <div class="tabs-bar" id="tabsBar"></div>
+  <div class="tw" id="tw">
+    <table id="tbl"><thead id="tHead"></thead><tbody id="tBody"></tbody></table>
+  </div>
+  <div class="footer hidden" id="footer">
+    <div class="pi" id="pi"></div>
+    <select class="rs" id="rs" onchange="onRsChange()">
+      <option value="50">50 строк</option>
+      <option value="100" selected>100 строк</option>
+      <option value="250">250 строк</option>
+      <option value="500">500 строк</option>
+      <option value="0">Все строки</option>
+    </select>
+    <div id="pgw"></div>
+  </div>
+</div>
+
+<div class="fp" id="fp">
+  <input type="text" id="fs" placeholder="Поиск значений…" oninput="renderFI()">
+  <div class="fl" id="fl"></div>
+  <div class="ff">
+    <button onclick="fAll()">Все</button>
+    <button onclick="fNone()">Снять</button>
+    <button class="fa" onclick="applyF()">Применить</button>
+  </div>
+</div>
+
+<div class="ctip" id="ctip"></div>
+<div class="toast" id="toast"></div>
+<div class="lo hidden" id="loader"><div class="sp"></div></div>
+
+<script>
+// ── THEME COLORS (Office Open XML) ──
+const TC=['FFFFFF','000000','E7E6E6','44546A','4472C4','ED7D31','A9D18E','FF0000','FF0000','FF0000','F2F2F2','7F7F7F','D6DCE4','D6E4F0','D9E1F2','FCE4D6','DEEAF1','EDF2F9','FFF2CC','E2EFDA'];
+
+function resolveColor(c){
+  if(!c) return null;
+  if(c.rgb){
+    const h=c.rgb.length===8?c.rgb.slice(2):c.rgb;
+    const u=h.toUpperCase();
+    if(u==='FFFFFF'||u==='000000') return null;
+    return '#'+h;
+  }
+  if(c.theme!==undefined){
+    let h=TC[c.theme]||'000000';
+    const t=c.tint||0;
+    if(t!==0){
+      let [r,g,b]=[0,2,4].map(i=>parseInt(h.slice(i,i+2),16));
+      if(t>0){r=Math.round(r+(255-r)*t);g=Math.round(g+(255-g)*t);b=Math.round(b+(255-b)*t);}
+      else{r=Math.round(r*(1+t));g=Math.round(g*(1+t));b=Math.round(b*(1+t));}
+      h=[r,g,b].map(v=>Math.max(0,Math.min(255,v)).toString(16).padStart(2,'0')).join('');
+    }
+    return '#'+h;
+  }
+  return null;
+}
+
+// Excel column letter: 0→A, 1→B …
+function colLtr(n){let s='';n++;while(n>0){n--;s=String.fromCharCode(65+(n%26))+s;n=Math.floor(n/26);}return s;}
+
+// ── STATE ──
+let wb=null,sheetNames=[],curS=0;
+let headers=[],rawRows=[],styleMap={};
+let filtered=[],sortCol=-1,sortDir=1;
+let searchQ='',colF={};
+let curPage=0,rpp=100,colW={};
+let aFC=-1,fAV=[],fSel=new Set();
+let fileB64='',fileName='';
+
+// ── FILE ──
+function handleFile(file){
+  if(!file) return;
+  showL(true);
+  const r=new FileReader();
+  r.onload=e=>{
+    const bin=e.target.result;
+    try{
+      wb=XLSX.read(bin,{type:'binary',cellDates:true,cellStyles:true,dense:false});
+      sheetNames=wb.SheetNames; curS=0; fileName=file.name;
+      // base64 for share
+      const r2=new FileReader();
+      r2.onload=ev=>{fileB64=ev.target.result.split(',')[1];};
+      r2.readAsDataURL(file);
+      initViewer();
+      loadSheet(0);
+    }catch(ex){alert('Ошибка: '+ex.message);}
+    showL(false);
+  };
+  r.readAsBinaryString(file);
+}
+
+function initViewer(){
+  document.getElementById('filePill').textContent=fileName+' (загружен)';
+  document.getElementById('filePill').classList.add('on');
+  document.getElementById('dropzone').style.display='none';
+  document.getElementById('viewer').classList.add('on');
+  document.getElementById('toolbar').classList.remove('hidden');
+  document.getElementById('footer').classList.remove('hidden');
+  ['btnCsv','btnJson','btnShare'].forEach(id=>document.getElementById(id).classList.remove('hidden'));
+}
+
+// ── LOAD SHEET ──
+function loadSheet(idx){
+  curS=idx;
+  const ws=wb.Sheets[sheetNames[idx]];
+
+  // 1. Expand merged cells
+  if(ws['!merges']){
+    ws['!merges'].forEach(m=>{
+      const srcAddr=XLSX.utils.encode_cell({r:m.s.r,c:m.s.c});
+      const srcCell=ws[srcAddr];
+      for(let r=m.s.r;r<=m.e.r;r++){
+        for(let c=m.s.c;c<=m.e.c;c++){
+          if(r===m.s.r&&c===m.s.c) continue;
+          const addr=XLSX.utils.encode_cell({r,c});
+          if(!ws[addr]&&srcCell) ws[addr]={...srcCell};
+        }
+      }
+    });
+  }
+
+  // 2. Raw data
+  const json=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
+  if(!json.length){headers=[];rawRows=[];styleMap={};apply();render();return;}
+
+  // 3. Smart header row: first row with ≥2 non-empty cells
+  let hRow=0;
+  for(let i=0;i<Math.min(json.length,15);i++){
+    if(json[i].filter(c=>String(c).trim()!=='').length>=2){hRow=i;break;}
+  }
+
+  // 4. Headers: value OR Excel column letter if empty
+  headers=json[hRow].map((h,i)=>{const v=String(h).trim();return v!==''?v:colLtr(i);});
+  rawRows=json.slice(hRow+1).filter(r=>r.some(c=>String(c).trim()!==''));
+
+  // 5. Cell styles
+  styleMap={};
+  const ref=ws['!ref'];
+  if(ref){
+    const range=XLSX.utils.decode_range(ref);
+    for(let R=range.s.r;R<=range.e.r;R++){
+      for(let C=range.s.c;C<=range.e.c;C++){
+        const addr=XLSX.utils.encode_cell({r:R,c:C});
+        const cell=ws[addr];
+        if(!cell||!cell.s) continue;
+        const s=cell.s;
+        const props={};
+        const bg=resolveColor(s.fgColor)||resolveColor(s.bgColor);
+        if(bg) props.background=bg;
+        const fc=resolveColor(s.font&&s.font.color);
+        if(fc) props.color=fc;
+        if(s.font&&s.font.bold) props.fontWeight='700';
+        if(s.font&&s.font.italic) props.fontStyle='italic';
+        const ha=s.alignment&&s.alignment.horizontal;
+        if(ha==='center') props.textAlign='center';
+        else if(ha==='right') props.textAlign='right';
+        if(!Object.keys(props).length) continue;
+        const dataR=R-(hRow+1);
+        if(R===hRow){if(!styleMap.__h)styleMap.__h={};styleMap.__h[C]=props;}
+        else if(dataR>=0){if(!styleMap[dataR])styleMap[dataR]={};styleMap[dataR][C]=props;}
+      }
+    }
+  }
+
+  colF={};sortCol=-1;sortDir=1;searchQ='';colW={};
+  const si=document.getElementById('searchIn');if(si)si.value='';
+  renderTabs();apply();render();
+}
+
+// ── TABS ──
+function renderTabs(){
+  document.getElementById('tabsBar').innerHTML=sheetNames.map((n,i)=>
+    `<div class="tab${i===curS?' active':''}" onclick="switchSheet(${i})">${esc(n)}</div>`
+  ).join('');
+}
+function switchSheet(i){loadSheet(i);}
+
+// ── FILTER + SEARCH + SORT ──
+function apply(){
+  let rows=rawRows;
+  const active=Object.entries(colF).filter(([,v])=>v&&v.size>0);
+  if(active.length){
+    rows=rows.filter(row=>active.every(([c,vals])=>vals.has(String(row[c]??''))));
+    document.getElementById('fBadge').style.display='';
+  } else document.getElementById('fBadge').style.display='none';
+  if(searchQ){
+    const q=searchQ.toLowerCase();
+    rows=rows.filter(row=>row.some(c=>String(c??'').toLowerCase().includes(q)));
+  }
+  if(sortCol>=0){
+    rows=[...rows].sort((a,b)=>{
+      const va=a[sortCol]??'',vb=b[sortCol]??'';
+      const na=parseFloat(va),nb=parseFloat(vb);
+      if(!isNaN(na)&&!isNaN(nb)) return (na-nb)*sortDir;
+      return String(va).localeCompare(String(vb),'ru')*sortDir;
+    });
+  }
+  filtered=rows;curPage=0;updS();
+}
+
+function onSearch(){searchQ=document.getElementById('searchIn').value.trim();apply();render();}
+
+function resetAll(keep){
+  colF={};sortCol=-1;sortDir=1;searchQ='';curPage=0;
+  const si=document.getElementById('searchIn');if(si)si.value='';
+  if(!keep){apply();render();}
+}
+
+function updS(){
+  const tot=rawRows.length,sh=filtered.length;
+  document.getElementById('statsBadge').innerHTML=sh<tot?`<b>${sh}</b> из <b>${tot}</b> строк · <b>${headers.length}</b> ст.`:`<b>${tot}</b> строк · <b>${headers.length}</b> столбцов`;
+  const sb=document.getElementById('sBadge');
+  if(sortCol>=0){sb.textContent=`↕ ${headers[sortCol]} ${sortDir>0?'▲':'▼'}`;sb.style.display='';}
+  else sb.style.display='none';
+}
+
+function toggleSort(c){if(sortCol===c)sortDir=-sortDir;else{sortCol=c;sortDir=1;}apply();render();}
+
+// ── RENDER ──
+function render(){renderHead();renderBody();renderPg();}
+
+function renderHead(){
+  const head=document.getElementById('tHead');
+  const tr=document.createElement('tr');
+  const rnTh=document.createElement('th');rnTh.className='rn';rnTh.textContent='';tr.appendChild(rnTh);
+  headers.forEach((h,i)=>{
+    const th=document.createElement('th');
+    const sorted=sortCol===i,hasF=colF[i]&&colF[i].size>0;
+    const div=document.createElement('div');
+    div.className='thc'+(sorted?' sorted':'');
+    div.innerHTML=`<span>${esc(h)}</span><span class="sa">${sorted?(sortDir>0?'▲':'▼'):'⇅'}</span>`;
+    div.onclick=()=>toggleSort(i);
+    th.appendChild(div);
+    const fb=document.createElement('button');
+    fb.className='fb'+(hasF?' on':'');fb.title='Фильтр';fb.textContent=hasF?'⏬':'▾';
+    fb.onclick=e=>{e.stopPropagation();openF(i,fb);};
+    th.appendChild(fb);
+    // Header cell style
+    const hs=styleMap.__h&&styleMap.__h[i];
+    if(hs) Object.assign(th.style,hs);
+    const rh=document.createElement('div');rh.className='rh';addResize(th,i,rh);th.appendChild(rh);
+    if(colW[i])th.style.width=colW[i]+'px';
+    tr.appendChild(th);
+  });
+  head.innerHTML='';head.appendChild(tr);
+}
+
+function renderBody(){
+  const tb=document.getElementById('tBody');
+  tb.innerHTML='';
+  const rpv=parseInt(document.getElementById('rs').value)||0;
+  rpp=rpv;
+  const start=rpv?curPage*rpv:0;
+  const end=rpv?Math.min(start+rpv,filtered.length):filtered.length;
+  const slice=filtered.slice(start,end);
+  const q=searchQ.toLowerCase();
+  slice.forEach((row,ri)=>{
+    const origIdx=rawRows.indexOf(row);
+    const tr=document.createElement('tr');
+    const rn=document.createElement('td');rn.className='rn';rn.textContent=start+ri+1;tr.appendChild(rn);
+    headers.forEach((_,ci)=>{
+      const td=document.createElement('td');
+      const val=row[ci]??'',str=String(val);
+      const isNum=str!==''&&!isNaN(parseFloat(str))&&isFinite(str.trim());
+      // Apply file style
+      const cs=origIdx>=0&&styleMap[origIdx]&&styleMap[origIdx][ci];
+      if(cs){
+        Object.assign(td.style,cs);
+        td.style.maxWidth='260px';td.style.overflow='hidden';td.style.textOverflow='ellipsis';td.style.whiteSpace='nowrap';
+      } else if(isNum){td.classList.add('nc');}
+      if(q&&str.toLowerCase().includes(q)) td.innerHTML=hilite(esc(str),esc(q));
+      else td.textContent=str;
+      if(colW[ci])td.style.maxWidth=colW[ci]+'px';
+      td.addEventListener('mouseenter',tipS);td.addEventListener('mouseleave',tipH);td.addEventListener('mousemove',tipM);
+      tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  });
+}
+
+function hilite(s,q){return s.replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),m=>`<mark>${m}</mark>`);}
+
+// ── FILTER ──
+function openF(ci,btn){
+  const popup=document.getElementById('fp');
+  if(aFC===ci&&popup.style.display==='block'){closeF();return;}
+  aFC=ci;
+  fAV=[...new Set(rawRows.map(r=>String(r[ci]??'')))].sort((a,b)=>a.localeCompare(b,'ru'));
+  fSel=colF[ci]?new Set(colF[ci]):new Set(fAV);
+  document.getElementById('fs').value='';renderFI();
+  const rect=btn.getBoundingClientRect();
+  popup.style.top=(rect.bottom+4)+'px';
+  popup.style.left=Math.min(rect.left,innerWidth-230)+'px';
+  popup.style.display='block';
+  setTimeout(()=>document.addEventListener('click',outsideF),10);
+}
+function renderFI(){
+  const q=document.getElementById('fs').value.toLowerCase();
+  const vals=q?fAV.filter(v=>v.toLowerCase().includes(q)):fAV;
+  document.getElementById('fl').innerHTML=vals.map(v=>{
+    const ch=fSel.has(v)?'checked':'';
+    const lbl=v?esc(v):'<em style="color:#bbb">пусто</em>';
+    return `<label class="fi"><input type="checkbox" ${ch} onchange="fTog('${v.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}',this.checked)"><span>${lbl}</span></label>`;
+  }).join('');
+}
+function fTog(v,ch){ch?fSel.add(v):fSel.delete(v);}
+function fAll(){fSel=new Set(fAV);renderFI();}
+function fNone(){fSel=new Set();renderFI();}
+function applyF(){
+  if(fSel.size===fAV.length)delete colF[aFC];else colF[aFC]=new Set(fSel);
+  apply();render();closeF();
+}
+function closeF(){document.getElementById('fp').style.display='none';aFC=-1;document.removeEventListener('click',outsideF);}
+function outsideF(e){if(!document.getElementById('fp').contains(e.target))closeF();}
+
+// ── PAGINATION ──
+function renderPg(){
+  const tot=filtered.length,pages=rpp?Math.ceil(tot/rpp):1;
+  const s=rpp?curPage*rpp+1:1,e=rpp?Math.min((curPage+1)*rpp,tot):tot;
+  document.getElementById('pi').innerHTML=tot===0?'Нет данных':`Строки <b>${s}–${e}</b> из <b>${tot}</b>`;
+  const wrap=document.getElementById('pgw');wrap.innerHTML='';
+  if(pages<=1)return;
+  const mk=(l,p,c,d)=>{const b=document.createElement('button');b.className='pb'+(c?' cur':'');b.disabled=d;b.textContent=l;b.onclick=()=>{curPage=p;renderBody();renderPg();};return b;};
+  wrap.appendChild(mk('◀',curPage-1,false,curPage===0));
+  let lo=Math.max(0,curPage-3),hi=Math.min(pages-1,lo+6);lo=Math.max(0,hi-6);
+  for(let p=lo;p<=hi;p++)wrap.appendChild(mk(p+1,p,p===curPage,false));
+  wrap.appendChild(mk('▶',curPage+1,false,curPage>=pages-1));
+}
+function onRsChange(){curPage=0;renderBody();renderPg();}
+
+// ── RESIZE ──
+function addResize(th,ci,rh){
+  let sx,sw;
+  rh.addEventListener('mousedown',e=>{
+    e.preventDefault();e.stopPropagation();sx=e.clientX;sw=th.offsetWidth;rh.classList.add('drag');
+    const mv=e=>{const w=Math.max(50,sw+e.clientX-sx);th.style.width=w+'px';colW[ci]=w;document.querySelectorAll(`#tBody tr td:nth-child(${ci+2})`).forEach(td=>td.style.maxWidth=w+'px');};
+    const up=()=>{rh.classList.remove('drag');document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);};
+    document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
+  });
+}
+
+// ── TOOLTIP ──
+function tipS(e){const v=e.target.textContent;if(!v||v.length<25)return;const t=document.getElementById('ctip');t.textContent=v;t.style.display='block';tipM(e);}
+function tipM(e){const t=document.getElementById('ctip');if(t.style.display==='none')return;t.style.left=Math.min(e.clientX+8,innerWidth-t.offsetWidth-8)+'px';t.style.top=(e.clientY+18)+'px';}
+function tipH(){document.getElementById('ctip').style.display='none';}
+
+// ── SHARE LINK ──
+function genLink(){
+  if(!fileB64){toast('Файл ещё загружается, подожди…');return;}
+  const LIMIT=1.8*1024*1024;
+  const bar=document.getElementById('shareBar');
+  const inp=document.getElementById('shareInp');
+  const note=document.getElementById('shareNote');
+  if(fileB64.length>LIMIT){
+    // localStorage
+    const key='xlsv_'+Date.now();
+    try{
+      localStorage.setItem(key,JSON.stringify({name:fileName,data:fileB64}));
+      const url=location.origin+location.pathname+'#local='+key;
+      inp.value=url;
+      note.innerHTML='<span style="color:#e65100">📦 Сохранено в браузере — работает только здесь</span>';
+    }catch(ex){toast('Файл слишком большой (>5MB)');return;}
+  } else {
+    const url=location.origin+location.pathname+'#file='+encodeURIComponent(fileB64)+'&name='+encodeURIComponent(fileName);
+    inp.value=url;
+    note.innerHTML='<span style="color:#1e8a4a">🌐 Ссылка работает на любом устройстве</span>';
+  }
+  bar.classList.add('on');
+  inp.select();
+}
+
+function copyLink(){
+  const inp=document.getElementById('shareInp');
+  if(navigator.clipboard){navigator.clipboard.writeText(inp.value).then(()=>toast('✅ Ссылка скопирована!'));}
+  else{inp.select();document.execCommand('copy');toast('✅ Скопировано!');}
+}
+
+// Load from URL hash
+function checkHash(){
+  const hash=location.hash.slice(1);
+  if(!hash)return;
+  const params={};
+  hash.split('&').forEach(p=>{const eq=p.indexOf('=');if(eq>0)params[p.slice(0,eq)]=decodeURIComponent(p.slice(eq+1));});
+  if(params.file) loadFromB64(params.file,params.name||'file.xlsx');
+  else if(params.local){
+    try{const s=localStorage.getItem(params.local);if(s){const{name,data}=JSON.parse(s);loadFromB64(data,name);}}catch(ex){}
+  }
+}
+
+function loadFromB64(b64,name){
+  showL(true);
+  setTimeout(()=>{
+    try{
+      wb=XLSX.read(b64,{type:'base64',cellDates:true,cellStyles:true,dense:false});
+      sheetNames=wb.SheetNames;curS=0;fileName=name;fileB64=b64;
+      resetAll(true);initViewer();loadSheet(0);
+    }catch(ex){alert('Ошибка: '+ex.message);}
+    showL(false);
+  },60);
+}
+
+// ── EXPORT ──
+function exportCSV(){if(!filtered.length)return;const ws=XLSX.utils.aoa_to_sheet([headers,...filtered]);dl('export.csv','text/csv',XLSX.utils.sheet_to_csv(ws));}
+function exportJSON(){if(!filtered.length)return;const arr=filtered.map(r=>{const o={};headers.forEach((h,i)=>o[h]=r[i]??'');return o;});dl('export.json','application/json',JSON.stringify(arr,null,2));}
+function dl(name,type,c){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type}));a.download=name;a.click();}
+
+// ── UTILS ──
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function showL(v){document.getElementById('loader').classList.toggle('hidden',!v);}
+let toastT;
+function toast(m){const el=document.getElementById('toast');el.textContent=m;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),2500);}
+
+// Drag & drop
+document.addEventListener('dragover',e=>e.preventDefault());
+document.addEventListener('drop',e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f)handleFile(f);});
+const dz=document.getElementById('dropzone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');handleFile(e.dataTransfer.files[0]);});
+
+checkHash();
+</script>
+</body>
+</html>
